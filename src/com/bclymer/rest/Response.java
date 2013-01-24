@@ -6,7 +6,6 @@ public class Response<T> {
 	
 	public T response;
 	public int httpStatusCode;
-	public int runningStatus;
 	public int errorCode;
 	public String rawResponse;
 	public Header[] headers;
@@ -18,12 +17,4 @@ public class Response<T> {
 		public static final int NETWORK_ERROR_UNKNOWN = 3;
 		public static final int REQUEST_CANCELLED = 3;
 	}
-	
-	public static class RunningStatusCodes {
-		public static final int WAITING = 0;
-		public static final int RUNNING = 1;
-		public static final int FINISHED = 2;
-	}
-	
-	
 }
