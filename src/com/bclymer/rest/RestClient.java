@@ -2,30 +2,38 @@ package com.bclymer.rest;
 
 import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
 import org.apache.http.StatusLine;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.ClientConnectionManager;
-import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.HttpParams;
+import org.json.JSONObject;
 
 import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
 import android.util.SparseArray;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RestClient {
@@ -42,6 +50,7 @@ public class RestClient {
 	private static final RestClient instance = new RestClient();
 
 	private RestClient() {
+		mMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 	}
 
 	public static RestClient getInstance() {
@@ -137,16 +146,7 @@ public class RestClient {
 		HttpPost request = new HttpPost(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
-			try {
-				StringEntity bodyString = new StringEntity(mMapper.writeValueAsString(body));
-				request.setEntity(bodyString);
-			} catch (UnsupportedEncodingException e) {
-				e.printStackTrace();
-				return -1;
-			} catch (JsonProcessingException e) {
-				e.printStackTrace();
-				return -1;
-			}
+			request.setEntity(getEntityForObject(body));
 		}
 		return performRequest(callback, request, clazz);
 	}
@@ -167,21 +167,12 @@ public class RestClient {
 	 * @return A Response object containing the response data and error
 	 *         information.
 	 */
-	public <T> Response<T> postSync(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers,
+	public <T> Response<T> postSync(String url, Class<T> clazz, Header[] headers,
 			HttpParams params, Object body) {
 		HttpPost request = new HttpPost(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
-			try {
-				StringEntity bodyString = new StringEntity(mMapper.writeValueAsString(body));
-				request.setEntity(bodyString);
-			} catch (UnsupportedEncodingException e) {
-				e.printStackTrace();
-				return null;
-			} catch (JsonProcessingException e) {
-				e.printStackTrace();
-				return null;
-			}
+			request.setEntity(getEntityForObject(body));
 		}
 		return performSyncRequest(request, clazz);
 	}
@@ -210,16 +201,7 @@ public class RestClient {
 		HttpPut request = new HttpPut(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
-			try {
-				StringEntity bodyString = new StringEntity(mMapper.writeValueAsString(body));
-				request.setEntity(bodyString);
-			} catch (UnsupportedEncodingException e) {
-				e.printStackTrace();
-				return -1;
-			} catch (JsonProcessingException e) {
-				e.printStackTrace();
-				return -1;
-			}
+			request.setEntity(getEntityForObject(body));
 		}
 		return performRequest(callback, request, clazz);
 	}
@@ -240,13 +222,12 @@ public class RestClient {
 	 * @return A Response object containing the response data and error
 	 *         information.
 	 */
-	public <T> Response<T> putSync(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers,
+	public <T> Response<T> putSync(String url, Class<T> clazz, Header[] headers,
 			HttpParams params, Object body) throws UnsupportedEncodingException, JsonProcessingException {
 		HttpPut request = new HttpPut(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
-			StringEntity bodyString = new StringEntity(mMapper.writeValueAsString(body));
-			request.setEntity(bodyString);
+			request.setEntity(getEntityForObject(body));
 		}
 		return performSyncRequest(request, clazz);
 	}
@@ -290,7 +271,7 @@ public class RestClient {
 	 * @return A Response object containing the response data and error
 	 *         information.
 	 */
-	public <T> Response<T> deleteSync(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers,
+	public <T> Response<T> deleteSync(String url, Class<T> clazz, Header[] headers,
 			HttpParams params) {
 		HttpDelete request = new HttpDelete(url);
 		setupRequest(request, headers, params);
@@ -317,12 +298,30 @@ public class RestClient {
 	 * 
 	 * @param id
 	 *            ID of the task to get the status of.
-	 * @return An AsyncTask.Status of the request, or <b>null</b> if the task isn't found.
+	 * @return An AsyncTask.Status of the request, or <b>null</b> if the task
+	 *         isn't found.
 	 */
 	public Status getStatus(int id) {
 		try {
 			return mTasks.get(id).getStatus();
 		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private HttpEntity getEntityForObject(Object obj) {
+		try {
+			JSONObject j = new JSONObject(mMapper.writeValueAsString(obj));
+			List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(j.length());
+			Iterator<String> iter = j.keys();
+			while (iter.hasNext()) {
+				String key = iter.next();
+				String value = j.getString(key);
+				nameValuePairs.add(new BasicNameValuePair(key, value));
+			}
+			return new UrlEncodedFormEntity(nameValuePairs);
+		} catch (Exception e) {
+			e.printStackTrace();
 			return null;
 		}
 	}
