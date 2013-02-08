@@ -32,12 +32,12 @@ import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
 import android.util.SparseArray;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 
 public class RestClient {
 
-	private final ObjectMapper mMapper = new ObjectMapper();
+	private final Gson gson = new Gson();
+
 	private final AtomicInteger mCount = new AtomicInteger();
 
 	@SuppressWarnings("rawtypes")
@@ -48,9 +48,7 @@ public class RestClient {
 
 	private static final RestClient instance = new RestClient();
 
-	private RestClient() {
-		mMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-	}
+	private RestClient() {}
 
 	public static RestClient getInstance() {
 		return instance;
@@ -309,11 +307,11 @@ public class RestClient {
 	}
 
 	private HttpEntity getEntityForObject(Object obj, EncodeStyle encodeStyle) {
+		String objAsString = gson.toJson(obj);
 		switch (encodeStyle) {
-		case JSON:
-		default:
+		case FORM_ENCODED:
 			try {
-				JSONObject j = new JSONObject(mMapper.writeValueAsString(obj));
+				JSONObject j = new JSONObject(objAsString);
 				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(j.length());
 				@SuppressWarnings("unchecked")
 				Iterator<String> iter = j.keys();
@@ -327,9 +325,10 @@ public class RestClient {
 				e.printStackTrace();
 				return null;
 			}
-		case FORM_ENCODED:
+		case JSON:
+		default:
 			try {
-				return new StringEntity(mMapper.writeValueAsString(obj));
+				return new StringEntity(objAsString);
 			} catch (Exception e) {
 				e.printStackTrace();
 				return null;
@@ -416,7 +415,7 @@ public class RestClient {
 				response.rawResponse = out.toString();
 				try {
 					if (clazz != null) {
-						response.response = (T) mMapper.readValue(response.rawResponse, clazz);
+						response.response = (T) gson.fromJson(response.rawResponse, clazz);
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -535,25 +534,27 @@ public class RestClient {
 
 		/**
 		 * Execute the request built by the builder on the current thread.
+		 * @param <T>
 		 * @return The response object
 		 */
-		public RestClientResponse<?> executeSync() {
+		@SuppressWarnings("unchecked")
+		public <T> RestClientResponse<T> executeSync() {
 			switch (requestType) {
 			case GET:
 			default:
-				return RestClient.getInstance().getSync(url, clazz, headers, params);
+				return (RestClientResponse<T>) RestClient.getInstance().getSync(url, clazz, headers, params);
 			case POST:
-				return RestClient.getInstance().postSync(url, clazz, headers, params, body, encodeStyle);
+				return (RestClientResponse<T>) RestClient.getInstance().postSync(url, clazz, headers, params, body, encodeStyle);
 			case PUT:
-				return RestClient.getInstance().putSync(url, clazz, headers, params, body, encodeStyle);
+				return (RestClientResponse<T>) RestClient.getInstance().putSync(url, clazz, headers, params, body, encodeStyle);
 			case DELETE:
-				return RestClient.getInstance().deleteSync(url, clazz, headers, params);
+				return (RestClientResponse<T>) RestClient.getInstance().deleteSync(url, clazz, headers, params);
 			}
 		}
 
 		/**
 		 * Execute the request built by the builder on a background thread
-		 * calling onSuccess or onFailure on the RestCallback object when done.
+		 * calling onSuccess or onFailure on the RestClientCallback object when done.
 		 * @return an int id of the request to check the status on or cancel.
 		 */
 		@SuppressWarnings("unchecked")
