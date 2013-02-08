@@ -14,6 +14,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.StatusLine;
+import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
@@ -22,6 +23,7 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicNameValuePair;
@@ -93,10 +95,11 @@ public class RestClient {
 	 * @return An int which will be the ID of that request. You can use this to
 	 *         cancel the request.
 	 */
-	public <T> int get(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params) {
+	public <T> int get(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, 
+			HttpParams params, UsernamePasswordCredentials credentials) {
 		HttpGet request = new HttpGet(url);
 		setupRequest(request, headers, params);
-		return performRequest(callback, request, clazz);
+		return performRequest(callback, request, clazz, credentials);
 	}
 
 	/**
@@ -113,10 +116,11 @@ public class RestClient {
 	 * @return A Response object containing the response data and error
 	 *         information.
 	 */
-	public <T> RestClientResponse<T> getSync(String url, Class<T> clazz, Header[] headers, HttpParams params) {
+	public <T> RestClientResponse<T> getSync(String url, Class<T> clazz, Header[] headers,
+			HttpParams params, UsernamePasswordCredentials credentials) {
 		HttpGet request = new HttpGet(url);
 		setupRequest(request, headers, params);
-		return performSyncRequest(request, clazz);
+		return performSyncRequest(request, clazz, credentials);
 	}
 
 	/**
@@ -139,13 +143,13 @@ public class RestClient {
 	 *         cancel the request.
 	 */
 	public <T> int post(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params,
-			Object body, EncodeStyle encodeStyle) {
+			Object body, EncodeStyle encodeStyle, UsernamePasswordCredentials credentials) {
 		HttpPost request = new HttpPost(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
 			request.setEntity(getEntityForObject(body, encodeStyle));
 		}
-		return performRequest(callback, request, clazz);
+		return performRequest(callback, request, clazz, credentials);
 	}
 
 	/**
@@ -165,13 +169,13 @@ public class RestClient {
 	 *         information.
 	 */
 	public <T> RestClientResponse<T> postSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, Object body, EncodeStyle encodeStyle) {
+			HttpParams params, Object body, EncodeStyle encodeStyle, UsernamePasswordCredentials credentials) {
 		HttpPost request = new HttpPost(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
 			request.setEntity(getEntityForObject(body, encodeStyle));
 		}
-		return performSyncRequest(request, clazz);
+		return performSyncRequest(request, clazz, credentials);
 	}
 
 	/**
@@ -194,13 +198,13 @@ public class RestClient {
 	 *         cancel the request.
 	 */
 	public <T> int put(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params,
-			Object body, EncodeStyle encodeStyle) {
+			Object body, EncodeStyle encodeStyle, UsernamePasswordCredentials credentials) {
 		HttpPut request = new HttpPut(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
 			request.setEntity(getEntityForObject(body, encodeStyle));
 		}
-		return performRequest(callback, request, clazz);
+		return performRequest(callback, request, clazz, credentials);
 	}
 
 	/**
@@ -220,13 +224,13 @@ public class RestClient {
 	 *         information.
 	 */
 	public <T> RestClientResponse<T> putSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, Object body, EncodeStyle encodeStyle) {
+			HttpParams params, Object body, EncodeStyle encodeStyle, UsernamePasswordCredentials credentials) {
 		HttpPut request = new HttpPut(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
 			request.setEntity(getEntityForObject(body, encodeStyle));
 		}
-		return performSyncRequest(request, clazz);
+		return performSyncRequest(request, clazz, credentials);
 	}
 
 	/**
@@ -248,10 +252,11 @@ public class RestClient {
 	 * @return An int which will be the ID of that request. You can use this to
 	 *         cancel the request.
 	 */
-	public <T> int delete(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params) {
+	public <T> int delete(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers,
+			HttpParams params, UsernamePasswordCredentials credentials) {
 		HttpDelete request = new HttpDelete(url);
 		setupRequest(request, headers, params);
-		return performRequest(callback, request, clazz);
+		return performRequest(callback, request, clazz, credentials);
 	}
 
 	/**
@@ -269,10 +274,10 @@ public class RestClient {
 	 *         information.
 	 */
 	public <T> RestClientResponse<T> deleteSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params) {
+			HttpParams params, UsernamePasswordCredentials credentials) {
 		HttpDelete request = new HttpDelete(url);
 		setupRequest(request, headers, params);
-		return performSyncRequest(request, clazz);
+		return performSyncRequest(request, clazz, credentials);
 	}
 
 	/**
@@ -347,8 +352,9 @@ public class RestClient {
 		}
 	}
 
-	private <T> int performRequest(RestClientCallback<T> callback, HttpUriRequest request, Class<T> clazz) {
-		DownloadWebSourceTask<T> d = new DownloadWebSourceTask<T>(callback, request, clazz);
+	private <T> int performRequest(RestClientCallback<T> callback, HttpUriRequest request, Class<T> clazz, 
+			UsernamePasswordCredentials credentials) {
+		DownloadWebSourceTask<T> d = new DownloadWebSourceTask<T>(callback, request, clazz, credentials);
 		int id = mCount.getAndIncrement();
 		mTasks.put(id, d);
 		d.execute();
@@ -360,11 +366,14 @@ public class RestClient {
 		private RestClientCallback<T> callback;
 		private HttpUriRequest request;
 		private Class<T> clazz;
+		private UsernamePasswordCredentials credentials;
 
-		public DownloadWebSourceTask(RestClientCallback<T> callback, HttpUriRequest request, Class<T> clazz) {
+		public DownloadWebSourceTask(RestClientCallback<T> callback, HttpUriRequest request, Class<T> clazz, 
+				UsernamePasswordCredentials credentials) {
 			this.callback = callback;
 			this.request = request;
 			this.clazz = clazz;
+			this.credentials = credentials;
 		}
 
 		@Override
@@ -376,7 +385,7 @@ public class RestClient {
 
 		@Override
 		protected RestClientResponse<T> doInBackground(Void... params) {
-			return performSyncRequest(request, clazz);
+			return performSyncRequest(request, clazz, credentials);
 		}
 
 		@Override
@@ -400,10 +409,14 @@ public class RestClient {
 		}
 	}
 
-	private <T> RestClientResponse<T> performSyncRequest(HttpUriRequest request, Class<T> clazz) {
+	private <T> RestClientResponse<T> performSyncRequest(HttpUriRequest request, Class<T> clazz,
+			UsernamePasswordCredentials credentials) {
 		RestClientResponse<T> response = new RestClientResponse<T>();
 		HttpResponse httpResponse;
 		try {
+			if (credentials != null) {
+				request.addHeader(new BasicScheme().authenticate(credentials, request));
+			}
 			httpResponse = getThreadSafeClient().execute(request);
 			StatusLine statusLine = httpResponse.getStatusLine();
 			response.httpStatusCode = statusLine.getStatusCode();
@@ -458,6 +471,7 @@ public class RestClient {
 		@SuppressWarnings("rawtypes")
 		private RestClientCallback callback;
 		private Object body;
+		private UsernamePasswordCredentials credentials;
 		private EncodeStyle encodeStyle;
 		private RequestType requestType;
 
@@ -531,6 +545,11 @@ public class RestClient {
 			this.encodeStyle = encodeStyle;
 			return this;
 		}
+		
+		public Builder addBasicAuthentication(String username, String password) {
+			credentials = new UsernamePasswordCredentials(username, password);
+			return this;
+		}
 
 		/**
 		 * Execute the request built by the builder on the current thread.
@@ -542,13 +561,13 @@ public class RestClient {
 			switch (requestType) {
 			case GET:
 			default:
-				return (RestClientResponse<T>) RestClient.getInstance().getSync(url, clazz, headers, params);
+				return (RestClientResponse<T>) RestClient.getInstance().getSync(url, clazz, headers, params, credentials);
 			case POST:
-				return (RestClientResponse<T>) RestClient.getInstance().postSync(url, clazz, headers, params, body, encodeStyle);
+				return (RestClientResponse<T>) RestClient.getInstance().postSync(url, clazz, headers, params, body, encodeStyle, credentials);
 			case PUT:
-				return (RestClientResponse<T>) RestClient.getInstance().putSync(url, clazz, headers, params, body, encodeStyle);
+				return (RestClientResponse<T>) RestClient.getInstance().putSync(url, clazz, headers, params, body, encodeStyle, credentials);
 			case DELETE:
-				return (RestClientResponse<T>) RestClient.getInstance().deleteSync(url, clazz, headers, params);
+				return (RestClientResponse<T>) RestClient.getInstance().deleteSync(url, clazz, headers, params, credentials);
 			}
 		}
 
@@ -562,13 +581,13 @@ public class RestClient {
 			switch (requestType) {
 			case GET:
 			default:
-				return RestClient.getInstance().get(url, clazz, callback, headers, params);
+				return RestClient.getInstance().get(url, clazz, callback, headers, params, credentials);
 			case POST:
-				return RestClient.getInstance().post(url, clazz, callback, headers, params, body, encodeStyle);
+				return RestClient.getInstance().post(url, clazz, callback, headers, params, body, encodeStyle, credentials);
 			case PUT:
-				return RestClient.getInstance().put(url, clazz, callback, headers, params, body, encodeStyle);
+				return RestClient.getInstance().put(url, clazz, callback, headers, params, body, encodeStyle, credentials);
 			case DELETE:
-				return RestClient.getInstance().delete(url, clazz, callback, headers, params);
+				return RestClient.getInstance().delete(url, clazz, callback, headers, params, credentials);
 			}
 		}
 	}
