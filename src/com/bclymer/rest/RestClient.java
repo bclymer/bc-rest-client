@@ -452,6 +452,11 @@ public class RestClient {
 		return client;
 	}
 
+	/**
+	 * A helper class to build and execute a requests.
+	 * @author Brian
+	 *
+	 */
 	public static class Builder {
 
 		private String url;
@@ -464,38 +469,81 @@ public class RestClient {
 		private int encodeStyle;
 		private int requestType;
 
+		/**
+		 * Builder Constructor
+		 * @param url URL to hit for the request
+		 * @param requestType
+		 * <br>RestClient.REQUEST_TYPE_GET
+		 * <br>RestClient.REQUEST_TYPE_POST
+		 * <br>RestClient.REQUEST_TYPE_PUT
+		 * <br>RestClient.REQUEST_TYPE_DELETE 
+		 */
 		public Builder(String url, int requestType) {
 			this.url = url;
 			this.requestType = requestType;
 		}
 
+		/**
+		 * Set the class to cast the request's JSON response to.
+		 * @param clazz class to cast
+		 * @return This builder
+		 */
 		public Builder setCastClass(Class<?> clazz) {
 			this.clazz = clazz;
 			return this;
 		}
 
+		/**
+		 * Adds headers to the default http headers.
+		 * @param headers Header array to add to request
+		 * @return This builder
+		 */
 		public Builder addHeaders(Header[] headers) {
 			this.headers = headers;
 			return this;
 		}
 
+		/**
+		 * Set parameters to the http request.
+		 * @param params Params to add to request
+		 * @return This builder
+		 */
 		public Builder setParams(HttpParams params) {
 			this.params = params;
 			return this;
 		}
 
+		/**
+		 * Sets the callback object for async network requests.
+		 * Override onFailure(Response<T> response) and
+		 * onSuccess(Response<T> response)
+		 * @param callback an instance RestCallback
+		 * @return
+		 */
 		@SuppressWarnings("rawtypes")
 		public Builder setRestCallback(RestCallback callback) {
 			this.callback = callback;
 			return this;
 		}
 
+		/**
+		 * Write the body of a POST or PUT request
+		 * @param body Any object with properties to encode
+		 * @param encodeStyle
+		 * <br>RestClient.ENCODE_STYLE_FORM_ENCODED
+		 * <br>RestClient.ENCODE_STYLE_JSON
+		 * @return
+		 */
 		public Builder setObjectBody(Object body, int encodeStyle) {
 			this.body = body;
 			this.encodeStyle = encodeStyle;
 			return this;
 		}
 
+		/**
+		 * Execute the request built by the builder on the current thread.
+		 * @return The response object
+		 */
 		public Response<?> executeSync() {
 			switch (requestType) {
 			case REQUEST_TYPE_GET:
@@ -510,6 +558,11 @@ public class RestClient {
 			}
 		}
 
+		/**
+		 * Execute the request built by the builder on a background thread
+		 * calling onSuccess or onFailure on the RestCallback object when done.
+		 * @return an int id of the request to check the status on or cancel.
+		 */
 		@SuppressWarnings("unchecked")
 		public int executeAsync() {
 			switch (requestType) {
