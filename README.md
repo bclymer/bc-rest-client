@@ -53,3 +53,26 @@ new Builder("http://bclymer.com/post.php", RestClient.RequestType.POST)
 ```
 
 The encode styles supported are `FORM_ENCODED` and `JSON`. You simply throw any object (a Java bean probably) into the setObjectBody method and it will be encoded and written to the POST or PUT body.
+
+It can also be used syncronously, in it's simplest form like
+```
+String htmlAndStuff = new Builder("http://www.google.com", RestClient.RequestType.GET).executeSync().rawResponse;
+```
+
+Or without the builder
+```
+RestClientResponse<Stuff> response = RestClient.getInstance().getSync("http://www.google.com", null, null, null);
+```
+
+Managing async requests
+
+Any async method call will return a unique int id that will let the user call
+```
+public Status getStatus(int id);
+```
+Which will return a `android.os.AsyncTask.Status` enum giving the status of the request.
+You may also call
+```
+public boolean cancel(int id);
+```
+To cancel a pending or current request, returning whether the request was cancelled or not.
