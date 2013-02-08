@@ -35,17 +35,15 @@ Stuff f = new Stuff();
 f.cityName = "Test";
 new Builder("http://bclymer.com/post.php", RestClient.RequestType.POST)
   .setObjectBody(f, RestClient.EncodeStyle.FORM_ENCODED)
-  .setRestClientCallback(new Test<Void>() {
+  .setRestClientCallback(new RestClientCallback<Void>() {
   
   	@Override
   	public void onSuccess(RestClientResponse<Void> response) {
-  		super.onSuccess(response);
   		Log.e("YAY", response.rawResponse);
   	}
   
   	@Override
   	public void onFailure(RestClientResponse<Void> response) {
-  		super.onFailure(response);
   		Log.e("YAY", response.rawResponse);
   	}
   })
