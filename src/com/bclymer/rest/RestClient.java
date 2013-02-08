@@ -37,13 +37,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RestClient {
 
-	public static final int ENCODE_STYLE_JSON = 0;
-	public static final int ENCODE_STYLE_FORM_ENCODED = 1;
-	public static final int REQUEST_TYPE_GET = 0;
-	public static final int REQUEST_TYPE_POST = 1;
-	public static final int REQUEST_TYPE_PUT = 2;
-	public static final int REQUEST_TYPE_DELETE = 3;
-
 	private final ObjectMapper mMapper = new ObjectMapper();
 	private final AtomicInteger mCount = new AtomicInteger();
 
@@ -102,7 +95,7 @@ public class RestClient {
 	 * @return An int which will be the ID of that request. You can use this to
 	 *         cancel the request.
 	 */
-	public <T> int get(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers, HttpParams params) {
+	public <T> int get(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params) {
 		HttpGet request = new HttpGet(url);
 		setupRequest(request, headers, params);
 		return performRequest(callback, request, clazz);
@@ -122,7 +115,7 @@ public class RestClient {
 	 * @return A Response object containing the response data and error
 	 *         information.
 	 */
-	public <T> Response<T> getSync(String url, Class<T> clazz, Header[] headers, HttpParams params) {
+	public <T> RestClientResponse<T> getSync(String url, Class<T> clazz, Header[] headers, HttpParams params) {
 		HttpGet request = new HttpGet(url);
 		setupRequest(request, headers, params);
 		return performSyncRequest(request, clazz);
@@ -147,8 +140,8 @@ public class RestClient {
 	 * @return An int which will be the ID of that request. You can use this to
 	 *         cancel the request.
 	 */
-	public <T> int post(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers, HttpParams params,
-			Object body, int encodeStyle) {
+	public <T> int post(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params,
+			Object body, EncodeStyle encodeStyle) {
 		HttpPost request = new HttpPost(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
@@ -173,8 +166,8 @@ public class RestClient {
 	 * @return A Response object containing the response data and error
 	 *         information.
 	 */
-	public <T> Response<T> postSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, Object body, int encodeStyle) {
+	public <T> RestClientResponse<T> postSync(String url, Class<T> clazz, Header[] headers,
+			HttpParams params, Object body, EncodeStyle encodeStyle) {
 		HttpPost request = new HttpPost(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
@@ -202,8 +195,8 @@ public class RestClient {
 	 * @return An int which will be the ID of that request. You can use this to
 	 *         cancel the request.
 	 */
-	public <T> int put(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers, HttpParams params,
-			Object body, int encodeStyle) {
+	public <T> int put(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params,
+			Object body, EncodeStyle encodeStyle) {
 		HttpPut request = new HttpPut(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
@@ -228,8 +221,8 @@ public class RestClient {
 	 * @return A Response object containing the response data and error
 	 *         information.
 	 */
-	public <T> Response<T> putSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, Object body, int encodeStyle) {
+	public <T> RestClientResponse<T> putSync(String url, Class<T> clazz, Header[] headers,
+			HttpParams params, Object body, EncodeStyle encodeStyle) {
 		HttpPut request = new HttpPut(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
@@ -257,7 +250,7 @@ public class RestClient {
 	 * @return An int which will be the ID of that request. You can use this to
 	 *         cancel the request.
 	 */
-	public <T> int delete(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers, HttpParams params) {
+	public <T> int delete(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params) {
 		HttpDelete request = new HttpDelete(url);
 		setupRequest(request, headers, params);
 		return performRequest(callback, request, clazz);
@@ -277,7 +270,7 @@ public class RestClient {
 	 * @return A Response object containing the response data and error
 	 *         information.
 	 */
-	public <T> Response<T> deleteSync(String url, Class<T> clazz, Header[] headers,
+	public <T> RestClientResponse<T> deleteSync(String url, Class<T> clazz, Header[] headers,
 			HttpParams params) {
 		HttpDelete request = new HttpDelete(url);
 		setupRequest(request, headers, params);
@@ -315,9 +308,10 @@ public class RestClient {
 		}
 	}
 
-	private HttpEntity getEntityForObject(Object obj, int encodeStyle) {
+	private HttpEntity getEntityForObject(Object obj, EncodeStyle encodeStyle) {
 		switch (encodeStyle) {
-		case ENCODE_STYLE_FORM_ENCODED:
+		case JSON:
+		default:
 			try {
 				JSONObject j = new JSONObject(mMapper.writeValueAsString(obj));
 				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(j.length());
@@ -333,8 +327,7 @@ public class RestClient {
 				e.printStackTrace();
 				return null;
 			}
-		case ENCODE_STYLE_JSON:
-		default:
+		case FORM_ENCODED:
 			try {
 				return new StringEntity(mMapper.writeValueAsString(obj));
 			} catch (Exception e) {
@@ -355,7 +348,7 @@ public class RestClient {
 		}
 	}
 
-	private <T> int performRequest(RestCallback<T> callback, HttpUriRequest request, Class<T> clazz) {
+	private <T> int performRequest(RestClientCallback<T> callback, HttpUriRequest request, Class<T> clazz) {
 		DownloadWebSourceTask<T> d = new DownloadWebSourceTask<T>(callback, request, clazz);
 		int id = mCount.getAndIncrement();
 		mTasks.put(id, d);
@@ -363,13 +356,13 @@ public class RestClient {
 		return id;
 	}
 
-	private class DownloadWebSourceTask<T> extends AsyncTask<Void, Void, Response<T>> {
+	private class DownloadWebSourceTask<T> extends AsyncTask<Void, Void, RestClientResponse<T>> {
 
-		private RestCallback<T> callback;
+		private RestClientCallback<T> callback;
 		private HttpUriRequest request;
 		private Class<T> clazz;
 
-		public DownloadWebSourceTask(RestCallback<T> callback, HttpUriRequest request, Class<T> clazz) {
+		public DownloadWebSourceTask(RestClientCallback<T> callback, HttpUriRequest request, Class<T> clazz) {
 			this.callback = callback;
 			this.request = request;
 			this.clazz = clazz;
@@ -383,21 +376,21 @@ public class RestClient {
 		}
 
 		@Override
-		protected Response<T> doInBackground(Void... params) {
+		protected RestClientResponse<T> doInBackground(Void... params) {
 			return performSyncRequest(request, clazz);
 		}
 
 		@Override
-		protected void onCancelled(Response<T> response) {
+		protected void onCancelled(RestClientResponse<T> response) {
 			if (response == null) {
-				response = new Response<T>();
+				response = new RestClientResponse<T>();
 			}
-			response.errorCode = Response.ErrorCodes.REQUEST_CANCELLED;
+			response.errorCode = RestClientResponse.ErrorCodes.REQUEST_CANCELLED;
 			callback.onFailure(response);
 		}
 
 		@Override
-		protected void onPostExecute(Response<T> response) {
+		protected void onPostExecute(RestClientResponse<T> response) {
 			if (callback == null)
 				return;
 			if (response.errorCode == 0) {
@@ -408,8 +401,8 @@ public class RestClient {
 		}
 	}
 
-	private <T> Response<T> performSyncRequest(HttpUriRequest request, Class<T> clazz) {
-		Response<T> response = new Response<T>();
+	private <T> RestClientResponse<T> performSyncRequest(HttpUriRequest request, Class<T> clazz) {
+		RestClientResponse<T> response = new RestClientResponse<T>();
 		HttpResponse httpResponse;
 		try {
 			httpResponse = getThreadSafeClient().execute(request);
@@ -427,15 +420,15 @@ public class RestClient {
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
-					response.errorCode = Response.ErrorCodes.CAST_ERROR;
+					response.errorCode = RestClientResponse.ErrorCodes.CAST_ERROR;
 				}
 			} else {
 				httpResponse.getEntity().getContent().close();
-				response.errorCode = Response.ErrorCodes.NETWORK_ERROR_BAD_STATUS_CODE;
+				response.errorCode = RestClientResponse.ErrorCodes.NETWORK_ERROR_BAD_STATUS_CODE;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			response.errorCode = Response.ErrorCodes.NETWORK_ERROR_UNKNOWN;
+			response.errorCode = RestClientResponse.ErrorCodes.NETWORK_ERROR_UNKNOWN;
 		}
 		return response;
 	}
@@ -464,10 +457,10 @@ public class RestClient {
 		private Header[] headers;
 		private HttpParams params;
 		@SuppressWarnings("rawtypes")
-		private RestCallback callback;
+		private RestClientCallback callback;
 		private Object body;
-		private int encodeStyle;
-		private int requestType;
+		private EncodeStyle encodeStyle;
+		private RequestType requestType;
 
 		/**
 		 * Builder Constructor
@@ -478,7 +471,7 @@ public class RestClient {
 		 * <br>RestClient.REQUEST_TYPE_PUT
 		 * <br>RestClient.REQUEST_TYPE_DELETE 
 		 */
-		public Builder(String url, int requestType) {
+		public Builder(String url, RequestType requestType) {
 			this.url = url;
 			this.requestType = requestType;
 		}
@@ -521,7 +514,7 @@ public class RestClient {
 		 * @return
 		 */
 		@SuppressWarnings("rawtypes")
-		public Builder setRestCallback(RestCallback callback) {
+		public Builder setRestClientCallback(RestClientCallback callback) {
 			this.callback = callback;
 			return this;
 		}
@@ -534,7 +527,7 @@ public class RestClient {
 		 * <br>RestClient.ENCODE_STYLE_JSON
 		 * @return
 		 */
-		public Builder setObjectBody(Object body, int encodeStyle) {
+		public Builder setObjectBody(Object body, EncodeStyle encodeStyle) {
 			this.body = body;
 			this.encodeStyle = encodeStyle;
 			return this;
@@ -544,16 +537,16 @@ public class RestClient {
 		 * Execute the request built by the builder on the current thread.
 		 * @return The response object
 		 */
-		public Response<?> executeSync() {
+		public RestClientResponse<?> executeSync() {
 			switch (requestType) {
-			case REQUEST_TYPE_GET:
+			case GET:
 			default:
 				return RestClient.getInstance().getSync(url, clazz, headers, params);
-			case REQUEST_TYPE_POST:
+			case POST:
 				return RestClient.getInstance().postSync(url, clazz, headers, params, body, encodeStyle);
-			case REQUEST_TYPE_PUT:
+			case PUT:
 				return RestClient.getInstance().putSync(url, clazz, headers, params, body, encodeStyle);
-			case REQUEST_TYPE_DELETE:
+			case DELETE:
 				return RestClient.getInstance().deleteSync(url, clazz, headers, params);
 			}
 		}
@@ -566,16 +559,40 @@ public class RestClient {
 		@SuppressWarnings("unchecked")
 		public int executeAsync() {
 			switch (requestType) {
-			case REQUEST_TYPE_GET:
+			case GET:
 			default:
 				return RestClient.getInstance().get(url, clazz, callback, headers, params);
-			case REQUEST_TYPE_POST:
+			case POST:
 				return RestClient.getInstance().post(url, clazz, callback, headers, params, body, encodeStyle);
-			case REQUEST_TYPE_PUT:
+			case PUT:
 				return RestClient.getInstance().put(url, clazz, callback, headers, params, body, encodeStyle);
-			case REQUEST_TYPE_DELETE:
+			case DELETE:
 				return RestClient.getInstance().delete(url, clazz, callback, headers, params);
 			}
+		}
+	}
+	
+	public enum RequestType {
+		GET (0),
+		POST (1),
+		PUT (2),
+		DELETE (3);
+		
+		public int value;
+		
+		RequestType(int value) {
+			this.value = value;
+		}
+	}
+	
+	public enum EncodeStyle {
+		JSON (0),
+		FORM_ENCODED (1);
+		
+		public int value;
+		
+		EncodeStyle(int value) {
+			this.value = value;
 		}
 	}
 }
