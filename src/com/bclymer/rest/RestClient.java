@@ -1,7 +1,6 @@
 package com.bclymer.rest;
 
 import java.io.ByteArrayOutputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -22,6 +21,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicNameValuePair;
@@ -32,11 +32,17 @@ import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
 import android.util.SparseArray;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RestClient {
+
+	public static final int ENCODE_STYLE_JSON = 0;
+	public static final int ENCODE_STYLE_FORM_ENCODED = 1;
+	public static final int REQUEST_TYPE_GET = 0;
+	public static final int REQUEST_TYPE_POST = 1;
+	public static final int REQUEST_TYPE_PUT = 2;
+	public static final int REQUEST_TYPE_DELETE = 3;
 
 	private final ObjectMapper mMapper = new ObjectMapper();
 	private final AtomicInteger mCount = new AtomicInteger();
@@ -142,11 +148,11 @@ public class RestClient {
 	 *         cancel the request.
 	 */
 	public <T> int post(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers, HttpParams params,
-			Object body) {
+			Object body, int encodeStyle) {
 		HttpPost request = new HttpPost(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
-			request.setEntity(getEntityForObject(body));
+			request.setEntity(getEntityForObject(body, encodeStyle));
 		}
 		return performRequest(callback, request, clazz);
 	}
@@ -168,11 +174,11 @@ public class RestClient {
 	 *         information.
 	 */
 	public <T> Response<T> postSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, Object body) {
+			HttpParams params, Object body, int encodeStyle) {
 		HttpPost request = new HttpPost(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
-			request.setEntity(getEntityForObject(body));
+			request.setEntity(getEntityForObject(body, encodeStyle));
 		}
 		return performSyncRequest(request, clazz);
 	}
@@ -197,11 +203,11 @@ public class RestClient {
 	 *         cancel the request.
 	 */
 	public <T> int put(String url, Class<T> clazz, RestCallback<T> callback, Header[] headers, HttpParams params,
-			Object body) {
+			Object body, int encodeStyle) {
 		HttpPut request = new HttpPut(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
-			request.setEntity(getEntityForObject(body));
+			request.setEntity(getEntityForObject(body, encodeStyle));
 		}
 		return performRequest(callback, request, clazz);
 	}
@@ -223,11 +229,11 @@ public class RestClient {
 	 *         information.
 	 */
 	public <T> Response<T> putSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, Object body) throws UnsupportedEncodingException, JsonProcessingException {
+			HttpParams params, Object body, int encodeStyle) {
 		HttpPut request = new HttpPut(url);
 		setupRequest(request, headers, params);
 		if (body != null) {
-			request.setEntity(getEntityForObject(body));
+			request.setEntity(getEntityForObject(body, encodeStyle));
 		}
 		return performSyncRequest(request, clazz);
 	}
@@ -309,20 +315,32 @@ public class RestClient {
 		}
 	}
 
-	private HttpEntity getEntityForObject(Object obj) {
-		try {
-			JSONObject j = new JSONObject(mMapper.writeValueAsString(obj));
-			List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(j.length());
-			Iterator<String> iter = j.keys();
-			while (iter.hasNext()) {
-				String key = iter.next();
-				String value = j.getString(key);
-				nameValuePairs.add(new BasicNameValuePair(key, value));
+	private HttpEntity getEntityForObject(Object obj, int encodeStyle) {
+		switch (encodeStyle) {
+		case ENCODE_STYLE_FORM_ENCODED:
+			try {
+				JSONObject j = new JSONObject(mMapper.writeValueAsString(obj));
+				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(j.length());
+				@SuppressWarnings("unchecked")
+				Iterator<String> iter = j.keys();
+				while (iter.hasNext()) {
+					String key = iter.next();
+					String value = j.getString(key);
+					nameValuePairs.add(new BasicNameValuePair(key, value));
+				}
+				return new UrlEncodedFormEntity(nameValuePairs);
+			} catch (Exception e) {
+				e.printStackTrace();
+				return null;
 			}
-			return new UrlEncodedFormEntity(nameValuePairs);
-		} catch (Exception e) {
-			e.printStackTrace();
-			return null;
+		case ENCODE_STYLE_JSON:
+		default:
+			try {
+				return new StringEntity(mMapper.writeValueAsString(obj));
+			} catch (Exception e) {
+				e.printStackTrace();
+				return null;
+			}
 		}
 	}
 
@@ -404,7 +422,7 @@ public class RestClient {
 				out.close();
 				response.rawResponse = out.toString();
 				try {
-					if (response.response instanceof Void == false && clazz != null) {
+					if (clazz != null) {
 						response.response = (T) mMapper.readValue(response.rawResponse, clazz);
 					}
 				} catch (Exception e) {
@@ -432,5 +450,79 @@ public class RestClient {
 		client = new DefaultHttpClient(new ThreadSafeClientConnManager(params, mgr.getSchemeRegistry()), params);
 
 		return client;
+	}
+
+	public static class Builder {
+
+		private String url;
+		private Class<?> clazz;
+		private Header[] headers;
+		private HttpParams params;
+		@SuppressWarnings("rawtypes")
+		private RestCallback callback;
+		private Object body;
+		private int encodeStyle;
+		private int requestType;
+
+		public Builder(String url, int requestType) {
+			this.url = url;
+			this.requestType = requestType;
+		}
+
+		public Builder setCastClass(Class<?> clazz) {
+			this.clazz = clazz;
+			return this;
+		}
+
+		public Builder addHeaders(Header[] headers) {
+			this.headers = headers;
+			return this;
+		}
+
+		public Builder setParams(HttpParams params) {
+			this.params = params;
+			return this;
+		}
+
+		@SuppressWarnings("rawtypes")
+		public Builder setRestCallback(RestCallback callback) {
+			this.callback = callback;
+			return this;
+		}
+
+		public Builder setObjectBody(Object body, int encodeStyle) {
+			this.body = body;
+			this.encodeStyle = encodeStyle;
+			return this;
+		}
+
+		public Response<?> executeSync() {
+			switch (requestType) {
+			case REQUEST_TYPE_GET:
+			default:
+				return RestClient.getInstance().getSync(url, clazz, headers, params);
+			case REQUEST_TYPE_POST:
+				return RestClient.getInstance().postSync(url, clazz, headers, params, body, encodeStyle);
+			case REQUEST_TYPE_PUT:
+				return RestClient.getInstance().putSync(url, clazz, headers, params, body, encodeStyle);
+			case REQUEST_TYPE_DELETE:
+				return RestClient.getInstance().deleteSync(url, clazz, headers, params);
+			}
+		}
+
+		@SuppressWarnings("unchecked")
+		public int executeAsync() {
+			switch (requestType) {
+			case REQUEST_TYPE_GET:
+			default:
+				return RestClient.getInstance().get(url, clazz, callback, headers, params);
+			case REQUEST_TYPE_POST:
+				return RestClient.getInstance().post(url, clazz, callback, headers, params, body, encodeStyle);
+			case REQUEST_TYPE_PUT:
+				return RestClient.getInstance().put(url, clazz, callback, headers, params, body, encodeStyle);
+			case REQUEST_TYPE_DELETE:
+				return RestClient.getInstance().delete(url, clazz, callback, headers, params);
+			}
+		}
 	}
 }
