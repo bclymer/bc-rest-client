@@ -2,6 +2,16 @@ package com.bclymer.rest;
 
 
 public class RestClientCallback<T> {
+	
+	/**
+	 * Called as soon as the async request is made by the user.
+	 */
+	public void onPreExecute() {}
+	
+	/**
+	 * Called when the request is finished, whether successful or not.
+	 */
+	public void onPostExecute() {}
 
 	/**
 	 * Called when the status code of the http request is 200-299.
