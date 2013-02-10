@@ -6,15 +6,22 @@ public class RestClientResponse<T> {
 	
 	public T response;
 	public int httpStatusCode;
-	public int errorCode;
+	public ErrorCode errorCode;
 	public String rawResponse;
 	public Header[] headers;
 
-	public static class ErrorCodes {
-		public static final int NONE = 0;
-		public static final int CAST_ERROR = 1;
-		public static final int NETWORK_ERROR_BAD_STATUS_CODE = 2;
-		public static final int NETWORK_ERROR_UNKNOWN = 3;
-		public static final int REQUEST_CANCELLED = 3;
+	public enum ErrorCode {
+		
+		NONE(0),
+		CAST_ERROR(1),
+		NETWORK_ERROR_BAD_STATUS_CODE(2),
+		NETWORK_ERROR_UNKNOWN(3),
+		REQUEST_CANCELLED(4);
+		
+		public int value;
+		
+		ErrorCode(int value) {
+			this.value = value;
+		}
 	}
 }

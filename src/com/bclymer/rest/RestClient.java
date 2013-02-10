@@ -34,6 +34,7 @@ import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
 import android.util.SparseArray;
 
+import com.bclymer.rest.RestClientResponse.ErrorCode;
 import com.google.gson.Gson;
 
 public class RestClient {
@@ -393,7 +394,7 @@ public class RestClient {
 			if (response == null) {
 				response = new RestClientResponse<T>();
 			}
-			response.errorCode = RestClientResponse.ErrorCodes.REQUEST_CANCELLED;
+			response.errorCode = ErrorCode.REQUEST_CANCELLED;
 			callback.onFailure(response);
 		}
 
@@ -401,7 +402,7 @@ public class RestClient {
 		protected void onPostExecute(RestClientResponse<T> response) {
 			if (callback == null)
 				return;
-			if (response.errorCode == 0) {
+			if (response.errorCode == ErrorCode.NONE) {
 				callback.onSuccess(response);
 			} else {
 				callback.onFailure(response);
@@ -432,15 +433,15 @@ public class RestClient {
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
-					response.errorCode = RestClientResponse.ErrorCodes.CAST_ERROR;
+					response.errorCode = ErrorCode.CAST_ERROR;
 				}
 			} else {
 				httpResponse.getEntity().getContent().close();
-				response.errorCode = RestClientResponse.ErrorCodes.NETWORK_ERROR_BAD_STATUS_CODE;
+				response.errorCode = ErrorCode.NETWORK_ERROR_BAD_STATUS_CODE;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			response.errorCode = RestClientResponse.ErrorCodes.NETWORK_ERROR_UNKNOWN;
+			response.errorCode = ErrorCode.NETWORK_ERROR_UNKNOWN;
 		}
 		return response;
 	}
