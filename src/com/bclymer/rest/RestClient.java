@@ -445,6 +445,8 @@ public class RestClient {
 						} else {
 							response.errorCode = ErrorCode.NONE;
 						}
+					} else {
+						response.errorCode = ErrorCode.NONE;
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
