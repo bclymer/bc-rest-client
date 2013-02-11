@@ -9,6 +9,11 @@ new Builder("http://bclymer.com/json", RestClient.RequestType.GET)
   .setCastClass(Stuff.class)
   .setRestClientCallback(new RestClientCallback<Stuff>() {
   
+    @Override
+    public void onPreExecute() {
+      // Update UI to show we're loading something.
+    }
+  
   	@Override
   	public void onSuccess(RestClientResponse<Stuff> response) {
   		Log.e("YAY", response.response.cityName);
@@ -18,11 +23,19 @@ new Builder("http://bclymer.com/json", RestClient.RequestType.GET)
   	public void onFailure(RestClientResponse<Stuff> response) {
   		Log.e("YAY", response.response.cityName);
   	}
+    
+    @Override
+    onPostExecute() {
+      // Change UI back, we're done loading. This is method just exists
+      // so you don't need the same code in onFailure and onSuccess
+    }
   })
   .executeAsync();
 ```
 
 With `Stuff` being any Java bean.
+
+You can override any, all, or none of the methods in the callback. If you're just POSTing and don't care about the response you can not set a callback and call `executeAsync` and then not worry.
 
 If the user doesn't set the CastClass the `RestClientResponse.response` object will be null be `RestClientResponse.rawResponse` will still exist.
 
@@ -59,7 +72,7 @@ String htmlAndStuff = new Builder("http://www.google.com", RestClient.RequestTyp
 
 Or without the builder
 ```
-RestClientResponse<Stuff> response = RestClient.getInstance().getSync("http://www.google.com", null, null, null);
+RestClientResponse<Stuff> response = RestClient.getInstance().getSync("http://www.google.com", null, null, null, null);
 ```
 
 Managing async requests
