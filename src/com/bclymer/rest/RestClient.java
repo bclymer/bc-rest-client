@@ -1,37 +1,21 @@
 package com.bclymer.rest;
 
-import java.io.ByteArrayOutputStream;
-import java.util.ArrayList;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
-import org.apache.http.StatusLine;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.conn.ClientConnectionManager;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.auth.BasicScheme;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.params.HttpParams;
-import org.json.JSONObject;
-
 import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
+import android.os.Build;
+import android.util.Base64;
 import android.util.SparseArray;
 
 import com.bclymer.rest.RestClientResponse.ErrorCode;
@@ -47,11 +31,10 @@ public class RestClient {
 	private SparseArray<DownloadWebSourceTask> mTasks = new SparseArray<DownloadWebSourceTask>();
 	private Map<String, String> mDefaultHeaders = new HashMap<String, String>();
 
-	private DefaultHttpClient client;
-
 	private static final RestClient instance = new RestClient();
 
 	private RestClient() {
+		disableConnectionReuseIfNecessary();
 	}
 
 	public static RestClient getInstance() {
@@ -78,209 +61,6 @@ public class RestClient {
 	 */
 	public void removeDefaultHeader(String key) {
 		mDefaultHeaders.remove(key);
-	}
-
-	/**
-	 * Makes a HTTP GET request <b>asynchronously</b>, immediately returning
-	 * an int which will be the ID of that request.
-	 * 
-	 * @param url
-	 *            URL for request
-	 * @param clazz
-	 *            Class to cast response to
-	 * @param callback
-	 *            Class to call methods in upon completion of request.
-	 * @param headers
-	 *            Array of headers to be added to this request.
-	 * @param params
-	 *            HttpParams to be added to this request.
-	 * @return An int which will be the ID of that request. You can use this to
-	 *         cancel the request.
-	 */
-	public <T> int get(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers,
-			HttpParams params, UsernamePasswordCredentials credentials) {
-		HttpGet request = new HttpGet(url);
-		setupRequest(request, headers, params);
-		return performRequest(callback, request, clazz, credentials);
-	}
-
-	/**
-	 * Makes a HTTP GET request <b>synchronously</b>
-	 * 
-	 * @param url
-	 *            URL for request
-	 * @param clazz
-	 *            Class to cast response to
-	 * @param headers
-	 *            Array of headers to be added to this request.
-	 * @param params
-	 *            HttpParams to be added to this request.
-	 * @return A Response object containing the response data and error
-	 *         information.
-	 */
-	public <T> RestClientResponse<T> getSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, UsernamePasswordCredentials credentials) {
-		HttpGet request = new HttpGet(url);
-		setupRequest(request, headers, params);
-		return performSyncRequest(request, clazz, credentials);
-	}
-
-	/**
-	 * Makes a HTTP POST request <b>asynchronously</b>, immediately returning
-	 * an int which will be the ID of that request.
-	 * 
-	 * @param url
-	 *            URL for request
-	 * @param clazz
-	 *            Class to cast response to
-	 * @param callback
-	 *            Class to call methods in upon completion of request.
-	 * @param headers
-	 *            Array of headers to be added to this request.
-	 * @param params
-	 *            HttpParams to be added to this request.
-	 * @param body
-	 *            An object to be converted to JSON and attached to the request.
-	 * @return An int which will be the ID of that request. You can use this to
-	 *         cancel the request.
-	 */
-	public <T> int post(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers,
-			HttpParams params,
-			Object body, EncodeStyle encodeStyle, UsernamePasswordCredentials credentials) {
-		HttpPost request = new HttpPost(url);
-		setupRequest(request, headers, params);
-		if (body != null) {
-			request.setEntity(getEntityForObject(body, encodeStyle));
-		}
-		return performRequest(callback, request, clazz, credentials);
-	}
-
-	/**
-	 * Makes a HTTP POST request <b>synchronously</b>.
-	 * 
-	 * @param url
-	 *            URL for request
-	 * @param clazz
-	 *            Class to cast response to
-	 * @param headers
-	 *            Array of headers to be added to this request.
-	 * @param params
-	 *            HttpParams to be added to this request.
-	 * @param body
-	 *            An object to be converted to JSON and attached to the request.
-	 * @return A Response object containing the response data and error
-	 *         information.
-	 */
-	public <T> RestClientResponse<T> postSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, Object body, EncodeStyle encodeStyle, UsernamePasswordCredentials credentials) {
-		HttpPost request = new HttpPost(url);
-		setupRequest(request, headers, params);
-		if (body != null) {
-			request.setEntity(getEntityForObject(body, encodeStyle));
-		}
-		return performSyncRequest(request, clazz, credentials);
-	}
-
-	/**
-	 * Makes a HTTP PUT request <b>asynchronously</b>, immediately returning
-	 * an int which will be the ID of that request.
-	 * 
-	 * @param url
-	 *            URL for request
-	 * @param clazz
-	 *            Class to cast response to
-	 * @param callback
-	 *            Class to call methods in upon completion of request.
-	 * @param headers
-	 *            Array of headers to be added to this request.
-	 * @param params
-	 *            HttpParams to be added to this request.
-	 * @param body
-	 *            An object to be converted to JSON and attached to the request.
-	 * @return An int which will be the ID of that request. You can use this to
-	 *         cancel the request.
-	 */
-	public <T> int put(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers, HttpParams params,
-			Object body, EncodeStyle encodeStyle, UsernamePasswordCredentials credentials) {
-		HttpPut request = new HttpPut(url);
-		setupRequest(request, headers, params);
-		if (body != null) {
-			request.setEntity(getEntityForObject(body, encodeStyle));
-		}
-		return performRequest(callback, request, clazz, credentials);
-	}
-
-	/**
-	 * Makes a HTTP PUT request <b>synchronously</b>.
-	 * 
-	 * @param url
-	 *            URL for request
-	 * @param clazz
-	 *            Class to cast response to
-	 * @param headers
-	 *            Array of headers to be added to this request.
-	 * @param params
-	 *            HttpParams to be added to this request.
-	 * @param body
-	 *            An object to be converted to JSON and attached to the request.
-	 * @return A Response object containing the response data and error
-	 *         information.
-	 */
-	public <T> RestClientResponse<T> putSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, Object body, EncodeStyle encodeStyle, UsernamePasswordCredentials credentials) {
-		HttpPut request = new HttpPut(url);
-		setupRequest(request, headers, params);
-		if (body != null) {
-			request.setEntity(getEntityForObject(body, encodeStyle));
-		}
-		return performSyncRequest(request, clazz, credentials);
-	}
-
-	/**
-	 * Makes a HTTP DELETE request <b>asynchronously</b>, immediately returning
-	 * an int which will be the ID of that request.
-	 * 
-	 * @param url
-	 *            URL for request
-	 * @param clazz
-	 *            Class to cast response to
-	 * @param callback
-	 *            Class to call methods in upon completion of request.
-	 * @param headers
-	 *            Array of headers to be added to this request.
-	 * @param params
-	 *            HttpParams to be added to this request.
-	 * @param body
-	 *            An object to be converted to JSON and attached to the request.
-	 * @return An int which will be the ID of that request. You can use this to
-	 *         cancel the request.
-	 */
-	public <T> int delete(String url, Class<T> clazz, RestClientCallback<T> callback, Header[] headers,
-			HttpParams params, UsernamePasswordCredentials credentials) {
-		HttpDelete request = new HttpDelete(url);
-		setupRequest(request, headers, params);
-		return performRequest(callback, request, clazz, credentials);
-	}
-
-	/**
-	 * Makes a HTTP DELETE request <b>synchronously</b>.
-	 * 
-	 * @param url
-	 *            URL for request
-	 * @param clazz
-	 *            Class to cast response to
-	 * @param headers
-	 *            Array of headers to be added to this request.
-	 * @param params
-	 *            HttpParams to be added to this request.
-	 * @return A Response object containing the response data and error
-	 *         information.
-	 */
-	public <T> RestClientResponse<T> deleteSync(String url, Class<T> clazz, Header[] headers,
-			HttpParams params, UsernamePasswordCredentials credentials) {
-		HttpDelete request = new HttpDelete(url);
-		setupRequest(request, headers, params);
-		return performSyncRequest(request, clazz, credentials);
 	}
 
 	/**
@@ -314,50 +94,12 @@ public class RestClient {
 		}
 	}
 
-	private HttpEntity getEntityForObject(Object obj, EncodeStyle encodeStyle) {
-		String objAsString = gson.toJson(obj);
-		switch (encodeStyle) {
-		case FORM_ENCODED:
-			try {
-				JSONObject j = new JSONObject(objAsString);
-				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(j.length());
-				@SuppressWarnings("unchecked")
-				Iterator<String> iter = j.keys();
-				while (iter.hasNext()) {
-					String key = iter.next();
-					String value = j.getString(key);
-					nameValuePairs.add(new BasicNameValuePair(key, value));
-				}
-				return new UrlEncodedFormEntity(nameValuePairs);
-			} catch (Exception e) {
-				e.printStackTrace();
-				return null;
-			}
-		case JSON:
-		default:
-			try {
-				return new StringEntity(objAsString);
-			} catch (Exception e) {
-				e.printStackTrace();
-				return null;
-			}
-		}
+	private String getStringForObject(Object obj) {
+		return gson.toJson(obj);
 	}
 
-	private void setupRequest(HttpUriRequest request, Header[] headers, HttpParams params) {
-		if (headers != null) {
-			for (Header h : headers) {
-				request.addHeader(h);
-			}
-		}
-		if (params != null) {
-			request.setParams(params);
-		}
-	}
-
-	private <T> int performRequest(RestClientCallback<T> callback, HttpUriRequest request, Class<T> clazz,
-			UsernamePasswordCredentials credentials) {
-		DownloadWebSourceTask<T> d = new DownloadWebSourceTask<T>(callback, request, clazz, credentials);
+	private <T> int performRequest(Request request) {
+		DownloadWebSourceTask<T> d = new DownloadWebSourceTask<T>(request);
 		int id = mCount.getAndIncrement();
 		mTasks.put(id, d);
 		d.execute();
@@ -366,80 +108,90 @@ public class RestClient {
 
 	private class DownloadWebSourceTask<T> extends AsyncTask<Void, Void, RestClientResponse<T>> {
 
-		private RestClientCallback<T> callback;
-		private HttpUriRequest request;
-		private Class<T> clazz;
-		private UsernamePasswordCredentials credentials;
+		private Request request;
 
-		public DownloadWebSourceTask(RestClientCallback<T> callback, HttpUriRequest request, Class<T> clazz,
-				UsernamePasswordCredentials credentials) {
-			this.callback = callback;
+		public DownloadWebSourceTask(Request request) {
 			this.request = request;
-			this.clazz = clazz;
-			this.credentials = credentials;
 		}
 
 		@Override
 		protected void onPreExecute() {
 			for (Entry<String, String> entry : mDefaultHeaders.entrySet()) {
-				request.addHeader(entry.getKey(), entry.getValue());
+				request.headers.put(entry.getKey(), entry.getValue());
 			}
-			callback.onPreExecute();
+			if (request.callback != null) {
+				request.callback.onPreExecute();
+			}
 		}
 
 		@Override
 		protected RestClientResponse<T> doInBackground(Void... params) {
-			return performSyncRequest(request, clazz, credentials);
+			return performSyncRequest(request);
 		}
 
+		@SuppressWarnings("unchecked")
 		@Override
 		protected void onCancelled(RestClientResponse<T> response) {
 			if (response == null) {
 				response = new RestClientResponse<T>();
 			}
 			response.errorCode = ErrorCode.REQUEST_CANCELLED;
-			callback.onFailure(response);
+			if (request.callback != null) {
+				request.callback.onFailure(response);
+			}
 		}
 
+		@SuppressWarnings("unchecked")
 		@Override
 		protected void onPostExecute(RestClientResponse<T> response) {
-			if (callback == null)
+			if (request.callback == null)
 				return;
-			callback.onPostExecute();
+			request.callback.onPostExecute();
 			if (response.errorCode == ErrorCode.NONE) {
-				callback.onSuccess(response);
+				request.callback.onSuccess(response);
 			} else {
-				callback.onFailure(response);
+				request.callback.onFailure(response);
 			}
 		}
 	}
 
-	private <T> RestClientResponse<T> performSyncRequest(HttpUriRequest request, Class<T> clazz,
-			UsernamePasswordCredentials credentials) {
+	@SuppressWarnings("unchecked")
+	private <T> RestClientResponse<T> performSyncRequest(Request request) {
 		RestClientResponse<T> response = new RestClientResponse<T>();
-		HttpResponse httpResponse;
 		try {
-			if (credentials != null) {
-				request.addHeader(new BasicScheme().authenticate(credentials, request));
+			URL url = new URL(request.url);
+			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+			if (request.headers.entrySet() != null) {
+				for (Entry<String, String> entry : request.headers.entrySet()) {
+					connection.addRequestProperty(entry.getKey(), entry.getValue());
+				}
 			}
-			httpResponse = getThreadSafeClient().execute(request);
-			StatusLine statusLine = httpResponse.getStatusLine();
-			response.httpStatusCode = statusLine.getStatusCode();
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
-			HttpEntity entity = httpResponse.getEntity();
-			if (entity != null) {
-				entity.writeTo(out);
+			connection.setRequestMethod(request.requestType.name());
+			connection.setRequestProperty("User-Agent","Mozilla/5.0 ( compatible ) ");
+			connection.setRequestProperty("Accept","*/*");
+			if (request.requestType == RequestType.POST || request.requestType == RequestType.PUT) {
+				connection.setDoOutput(true);
+				OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
+				writer.write(request.body);
+				writer.flush();
 			}
-			response.headers = httpResponse.getAllHeaders();
-			out.close();
-			response.rawResponse = out.toString();
+			response.httpStatusCode = connection.getResponseCode();
+			InputStream in;
+			if (response.httpStatusCode == 404) {
+				in = connection.getErrorStream();
+			} else {
+				in = connection.getInputStream();
+			}
+			if (in != null) {
+				response.rawResponse = readStream(in);
+			}
 			if (response.rawResponse == null) {
 				response.rawResponse = "";
 			}
 			if (response.httpStatusCode / 100 == 2) {
 				try {
-					if (clazz != null) {
-						response.response = (T) gson.fromJson(response.rawResponse, clazz);
+					if (request.clazz != null) {
+						response.response = (T) gson.fromJson(response.rawResponse, request.clazz);
 						if (response.response == null) {
 							response.errorCode = ErrorCode.CAST_ERROR;
 						} else {
@@ -462,16 +214,36 @@ public class RestClient {
 		return response;
 	}
 
-	private synchronized DefaultHttpClient getThreadSafeClient() {
-		if (client != null)
-			return client;
+	private String readStream(InputStream in) {
+		BufferedReader reader = null;
+		try {
+			reader = new BufferedReader(new InputStreamReader(in));
+			StringBuilder str = new StringBuilder();
+			char[] bytes = new char[1024];
+			int count = 0;
+			while ((count = reader.read(bytes, 0, 1024)) != -1) {
+				str.append(bytes, 0, count);
+			}
+			return str.toString();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		return null;
+	}
 
-		client = new DefaultHttpClient();
-		ClientConnectionManager mgr = client.getConnectionManager();
-		HttpParams params = client.getParams();
-		client = new DefaultHttpClient(new ThreadSafeClientConnManager(params, mgr.getSchemeRegistry()), params);
-
-		return client;
+	private void disableConnectionReuseIfNecessary() {
+		// HTTP connection reuse which was buggy pre-froyo
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.FROYO) {
+			System.setProperty("http.keepAlive", "false");
+		}
 	}
 
 	/**
@@ -482,16 +254,7 @@ public class RestClient {
 	 */
 	public static class Builder {
 
-		private String url;
-		private Class<?> clazz;
-		private Header[] headers;
-		private HttpParams params;
-		@SuppressWarnings("rawtypes")
-		private RestClientCallback callback;
-		private Object body;
-		private UsernamePasswordCredentials credentials;
-		private EncodeStyle encodeStyle;
-		private RequestType requestType;
+		private Request request;
 
 		/**
 		 * Builder Constructor
@@ -506,8 +269,10 @@ public class RestClient {
 		 *            RestClient.REQUEST_TYPE_DELETE
 		 */
 		public Builder(String url, RequestType requestType) {
-			this.url = url;
-			this.requestType = requestType;
+			request = getInstance().new Request();
+			request.url = url;
+			request.requestType = requestType;
+			request.headers = new HashMap<String, String>();
 		}
 
 		/**
@@ -518,34 +283,20 @@ public class RestClient {
 		 * @return This builder
 		 */
 		public Builder setCastClass(Class<?> clazz) {
-			this.clazz = clazz;
+			request.clazz = clazz;
 			return this;
 		}
 
 		/**
-		 * Adds headers to the default http headers.
+		 * Adds header to the default http headers.
 		 * 
-		 * @param headers
-		 *            Header array to add to request
 		 * @return This builder
 		 */
-		public Builder addHeaders(Header[] headers) {
-			this.headers = headers;
+		public Builder addHeader(String name, String value) {
+			request.headers.put(name, value);
 			return this;
 		}
-
-		/**
-		 * Set parameters to the http request.
-		 * 
-		 * @param params
-		 *            Params to add to request
-		 * @return This builder
-		 */
-		public Builder setParams(HttpParams params) {
-			this.params = params;
-			return this;
-		}
-
+		
 		/**
 		 * Sets the callback object for async network requests.
 		 * Override onFailure(Response<T> response) and
@@ -557,7 +308,7 @@ public class RestClient {
 		 */
 		@SuppressWarnings("rawtypes")
 		public Builder setRestClientCallback(RestClientCallback callback) {
-			this.callback = callback;
+			request.callback = callback;
 			return this;
 		}
 
@@ -566,20 +317,16 @@ public class RestClient {
 		 * 
 		 * @param body
 		 *            Any object with properties to encode
-		 * @param encodeStyle
-		 * <br>
-		 *            RestClient.ENCODE_STYLE_FORM_ENCODED <br>
-		 *            RestClient.ENCODE_STYLE_JSON
 		 * @return
 		 */
-		public Builder setObjectBody(Object body, EncodeStyle encodeStyle) {
-			this.body = body;
-			this.encodeStyle = encodeStyle;
+		public Builder setObjectBody(Object body) {
+			request.body = getInstance().getStringForObject(body);
 			return this;
 		}
 
 		public Builder addBasicAuthentication(String username, String password) {
-			credentials = new UsernamePasswordCredentials(username, password);
+			request.headers.put("Authorization",
+					"Basic " + Base64.encodeToString("user:password".getBytes(), Base64.NO_WRAP));
 			return this;
 		}
 
@@ -589,23 +336,8 @@ public class RestClient {
 		 * @param <T>
 		 * @return The response object
 		 */
-		@SuppressWarnings("unchecked")
 		public <T> RestClientResponse<T> executeSync() {
-			switch (requestType) {
-			case GET:
-			default:
-				return (RestClientResponse<T>) RestClient.getInstance().getSync(url, clazz, headers, params,
-						credentials);
-			case POST:
-				return (RestClientResponse<T>) RestClient.getInstance().postSync(url, clazz, headers, params, body,
-						encodeStyle, credentials);
-			case PUT:
-				return (RestClientResponse<T>) RestClient.getInstance().putSync(url, clazz, headers, params, body,
-						encodeStyle, credentials);
-			case DELETE:
-				return (RestClientResponse<T>) RestClient.getInstance().deleteSync(url, clazz, headers, params,
-						credentials);
-			}
+			return getInstance().performSyncRequest(request);
 		}
 
 		/**
@@ -615,22 +347,21 @@ public class RestClient {
 		 * 
 		 * @return an int id of the request to check the status on or cancel.
 		 */
-		@SuppressWarnings("unchecked")
 		public int executeAsync() {
-			switch (requestType) {
-			case GET:
-			default:
-				return RestClient.getInstance().get(url, clazz, callback, headers, params, credentials);
-			case POST:
-				return RestClient.getInstance().post(url, clazz, callback, headers, params, body, encodeStyle,
-						credentials);
-			case PUT:
-				return RestClient.getInstance().put(url, clazz, callback, headers, params, body, encodeStyle,
-						credentials);
-			case DELETE:
-				return RestClient.getInstance().delete(url, clazz, callback, headers, params, credentials);
-			}
+			return RestClient.getInstance().performRequest(request);
 		}
+	}
+
+	private class Request {
+
+		public String url;
+		public Class<?> clazz;
+		public HashMap<String, String> headers;
+		@SuppressWarnings("rawtypes")
+		public RestClientCallback callback;
+		public String body;
+		public RequestType requestType;
+
 	}
 
 	public enum RequestType {
@@ -642,17 +373,6 @@ public class RestClient {
 		public int value;
 
 		RequestType(int value) {
-			this.value = value;
-		}
-	}
-
-	public enum EncodeStyle {
-		JSON(0),
-		FORM_ENCODED(1);
-
-		public int value;
-
-		EncodeStyle(int value) {
 			this.value = value;
 		}
 	}
