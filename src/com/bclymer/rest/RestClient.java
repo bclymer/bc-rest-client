@@ -116,9 +116,6 @@ public class RestClient {
 
 		@Override
 		protected void onPreExecute() {
-			for (Entry<String, String> entry : mDefaultHeaders.entrySet()) {
-				request.headers.put(entry.getKey(), entry.getValue());
-			}
 			if (request.callback != null) {
 				request.callback.onPreExecute();
 			}
@@ -160,6 +157,9 @@ public class RestClient {
 		RestClientResponse<T> response = new RestClientResponse<T>();
 		try {
 			URL url = new URL(request.url);
+			for (Entry<String, String> entry : mDefaultHeaders.entrySet()) {
+				request.headers.put(entry.getKey(), entry.getValue());
+			}
 			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 			if (request.headers.entrySet() != null) {
 				for (Entry<String, String> entry : request.headers.entrySet()) {
@@ -177,7 +177,7 @@ public class RestClient {
 			}
 			response.httpStatusCode = connection.getResponseCode();
 			InputStream in;
-			if (response.httpStatusCode == 404) {
+			if (response.httpStatusCode / 100 == 2) {
 				in = connection.getErrorStream();
 			} else {
 				in = connection.getInputStream();
@@ -263,10 +263,10 @@ public class RestClient {
 		 *            URL to hit for the request
 		 * @param requestType
 		 * <br>
-		 *            RestClient.REQUEST_TYPE_GET <br>
-		 *            RestClient.REQUEST_TYPE_POST <br>
-		 *            RestClient.REQUEST_TYPE_PUT <br>
-		 *            RestClient.REQUEST_TYPE_DELETE
+		 *            RestClient.RequestType.GET <br>
+		 *            RestClient.RequestType.POST <br>
+		 *            RestClient.RequestType.PUT <br>
+		 *            RestClient.RequestType.DELETE
 		 */
 		public Builder(String url, RequestType requestType) {
 			request = getInstance().new Request();
@@ -303,7 +303,7 @@ public class RestClient {
 		 * onSuccess(Response<T> response)
 		 * 
 		 * @param callback
-		 *            an instance RestCallback
+		 *            an instance of RestClientCallback
 		 * @return
 		 */
 		@SuppressWarnings("rawtypes")

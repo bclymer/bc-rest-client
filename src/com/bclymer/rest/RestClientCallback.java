@@ -1,7 +1,7 @@
 package com.bclymer.rest;
 
 
-public class RestClientCallback<T> {
+public abstract class RestClientCallback<T> {
 	
 	/**
 	 * Called as soon as the async request is made by the user.
