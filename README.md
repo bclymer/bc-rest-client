@@ -47,7 +47,7 @@ You can also POST or PUT with the client (DELETE too) with
 Stuff f = new Stuff();
 f.cityName = "Test";
 new Builder("http://bclymer.com/post.php", RestClient.RequestType.POST)
-  .setObjectBody(f, RestClient.EncodeStyle.FORM_ENCODED)
+  .setObjectBody(f)
   .setRestClientCallback(new RestClientCallback<Void>() {
   
   	@Override
@@ -63,16 +63,11 @@ new Builder("http://bclymer.com/post.php", RestClient.RequestType.POST)
   .executeAsync();
 ```
 
-The encode styles supported are `FORM_ENCODED` and `JSON`. You simply throw any object (a Java bean probably) into the setObjectBody method and it will be encoded and written to the POST or PUT body.
+The encode style is JSON using GSON. You simply throw any object (a Java bean probably) into the setObjectBody method and it will be encoded and written to the POST or PUT body.
 
 It can also be used syncronously, in it's simplest form like
 ```
 String htmlAndStuff = new Builder("http://www.google.com", RestClient.RequestType.GET).executeSync().rawResponse;
-```
-
-Or without the builder
-```
-RestClientResponse<Stuff> response = RestClient.getInstance().getSync("http://www.google.com", null, null, null, null);
 ```
 
 Managing async requests
@@ -87,3 +82,8 @@ You may also call
 public boolean cancel(int id);
 ```
 To cancel a pending or current request, returning whether the request was cancelled or not.
+
+Dependancies
+=================
+You will need GSON for serialization and deserialization to work.
+https://code.google.com/p/google-gson/
