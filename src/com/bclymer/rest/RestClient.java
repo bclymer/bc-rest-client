@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import android.annotation.TargetApi;
 import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
 import android.os.Build;
@@ -98,11 +99,16 @@ public class RestClient {
 		return gson.toJson(obj);
 	}
 
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	private <T> int performRequest(Request request) {
 		DownloadWebSourceTask<T> d = new DownloadWebSourceTask<T>(request);
 		int id = mCount.getAndIncrement();
 		mTasks.put(id, d);
-		d.execute();
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+			d.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+		} else {
+			d.execute();
+		}
 		return id;
 	}
 
@@ -178,9 +184,9 @@ public class RestClient {
 			response.httpStatusCode = connection.getResponseCode();
 			InputStream in;
 			if (response.httpStatusCode / 100 == 2) {
-				in = connection.getErrorStream();
-			} else {
 				in = connection.getInputStream();
+			} else {
+				in = connection.getErrorStream();
 			}
 			if (in != null) {
 				response.rawResponse = readStream(in);
