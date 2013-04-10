@@ -17,6 +17,7 @@ import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
 import android.os.Build;
 import android.util.Base64;
+import android.util.Log;
 import android.util.SparseArray;
 
 import com.bclymer.rest.RestClientResponse.ErrorCode;
@@ -25,8 +26,8 @@ import com.google.gson.Gson;
 public class RestClient {
 
 	private final Gson gson = new Gson();
-
 	private final AtomicInteger mCount = new AtomicInteger();
+	private static LoggingLevel loggingLevel = LoggingLevel.NONE;
 
 	@SuppressWarnings("rawtypes")
 	private SparseArray<DownloadWebSourceTask> mTasks = new SparseArray<DownloadWebSourceTask>();
@@ -51,6 +52,7 @@ public class RestClient {
 	 *            Header value
 	 */
 	public void addDefaultHeader(String key, String value) {
+		log("Adding default header with key " + key + " and value " + value, LoggingLevel.VERBOSE);
 		mDefaultHeaders.put(key, value);
 	}
 
@@ -61,6 +63,7 @@ public class RestClient {
 	 *            Header key to remove
 	 */
 	public void removeDefaultHeader(String key) {
+		log("Removing default header with key " + key, LoggingLevel.VERBOSE);
 		mDefaultHeaders.remove(key);
 	}
 
@@ -73,8 +76,10 @@ public class RestClient {
 	 */
 	public boolean cancel(int id) {
 		try {
+			log("Cancelling task " + id, LoggingLevel.VERBOSE);
 			return mTasks.get(id).cancel(true);
 		} catch (Exception e) {
+			log("Failed to cancel task " + id, LoggingLevel.ERROR);
 			return false;
 		}
 	}
@@ -94,9 +99,23 @@ public class RestClient {
 			return null;
 		}
 	}
+	
+	/**
+	 * Set the logging level for the RestClient.
+	 * VERBOSE - Log everything (well, almost everything).
+	 * WARNING - Log anything that might go wrong.
+	 * ERROR - Log when an error happens.
+	 * NONE - Don't log a thing.
+	 */
+	public static void setLoggingLevel(LoggingLevel level) {
+		loggingLevel = level;
+		log("Logging level set to " + loggingLevel.name(), LoggingLevel.VERBOSE);
+	}
 
 	private String getStringForObject(Object obj) {
-		return gson.toJson(obj);
+		String serialization = gson.toJson(obj);
+		log("Serialized object as " + serialization, LoggingLevel.VERBOSE);
+		return serialization;
 	}
 
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
@@ -104,6 +123,8 @@ public class RestClient {
 		DownloadWebSourceTask<T> d = new DownloadWebSourceTask<T>(request);
 		int id = mCount.getAndIncrement();
 		mTasks.put(id, d);
+		request.taskId = id;
+		log("Adding async task to queue with id " + id, LoggingLevel.VERBOSE);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
 			d.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 		} else {
@@ -122,6 +143,7 @@ public class RestClient {
 
 		@Override
 		protected void onPreExecute() {
+			log("onPreExecute Id " + request.taskId, LoggingLevel.VERBOSE);
 			if (request.callback != null) {
 				request.callback.onPreExecute();
 			}
@@ -129,12 +151,14 @@ public class RestClient {
 
 		@Override
 		protected RestClientResponse<T> doInBackground(Void... params) {
+			log("Executing Task " + request.taskId, LoggingLevel.VERBOSE);
 			return performSyncRequest(request);
 		}
 
 		@SuppressWarnings("unchecked")
 		@Override
 		protected void onCancelled(RestClientResponse<T> response) {
+			log("onCancelled Task " + request.taskId, LoggingLevel.VERBOSE);
 			if (response == null) {
 				response = new RestClientResponse<T>();
 			}
@@ -147,14 +171,15 @@ public class RestClient {
 		@SuppressWarnings("unchecked")
 		@Override
 		protected void onPostExecute(RestClientResponse<T> response) {
+			log("onPostExecute Task " + request.taskId, LoggingLevel.VERBOSE);
 			if (request.callback == null)
 				return;
-			request.callback.onPostExecute();
 			if (response.errorCode == ErrorCode.NONE) {
 				request.callback.onSuccess(response);
 			} else {
 				request.callback.onFailure(response);
 			}
+			request.callback.onPostExecute();
 		}
 	}
 
@@ -162,6 +187,7 @@ public class RestClient {
 	private <T> RestClientResponse<T> performSyncRequest(Request request) {
 		RestClientResponse<T> response = new RestClientResponse<T>();
 		try {
+			log(request.url, LoggingLevel.VERBOSE);
 			URL url = new URL(request.url);
 			for (Entry<String, String> entry : mDefaultHeaders.entrySet()) {
 				request.headers.put(entry.getKey(), entry.getValue());
@@ -182,6 +208,7 @@ public class RestClient {
 				writer.flush();
 			}
 			response.httpStatusCode = connection.getResponseCode();
+			log("Status code " + response.httpStatusCode, LoggingLevel.VERBOSE);
 			InputStream in;
 			if (response.httpStatusCode / 100 == 2) {
 				in = connection.getInputStream();
@@ -194,11 +221,13 @@ public class RestClient {
 			if (response.rawResponse == null) {
 				response.rawResponse = "";
 			}
+			log("Raw Response: " + response.rawResponse, LoggingLevel.VERBOSE);
 			if (response.httpStatusCode / 100 == 2) {
 				try {
 					if (request.clazz != null) {
 						response.response = (T) gson.fromJson(response.rawResponse, request.clazz);
 						if (response.response == null) {
+							log("CAST ERROR - Failed to cast to " + request.clazz.getSimpleName(), LoggingLevel.ERROR);
 							response.errorCode = ErrorCode.CAST_ERROR;
 						} else {
 							response.errorCode = ErrorCode.NONE;
@@ -207,14 +236,20 @@ public class RestClient {
 						response.errorCode = ErrorCode.NONE;
 					}
 				} catch (Exception e) {
-					e.printStackTrace();
+					if (loggingLevel.value > LoggingLevel.VERBOSE.value) {
+						e.printStackTrace();
+					}
+					log("CAST ERROR - Failed to cast to " + request.clazz.getSimpleName(), LoggingLevel.ERROR);
 					response.errorCode = ErrorCode.CAST_ERROR;
 				}
 			} else {
 				response.errorCode = ErrorCode.NETWORK_ERROR_BAD_STATUS_CODE;
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			if (loggingLevel.value > LoggingLevel.VERBOSE.value) {
+				e.printStackTrace();
+			}
+			log("NETWORK ERROR UNKNOWN", LoggingLevel.ERROR);
 			response.errorCode = ErrorCode.NETWORK_ERROR_UNKNOWN;
 		}
 		return response;
@@ -367,6 +402,7 @@ public class RestClient {
 		public RestClientCallback callback;
 		public String body;
 		public RequestType requestType;
+		public int taskId;
 
 	}
 
@@ -380,6 +416,35 @@ public class RestClient {
 
 		RequestType(int value) {
 			this.value = value;
+		}
+	}
+	
+	public enum LoggingLevel {
+		VERBOSE(0),
+		WARNING(1),
+		ERROR(2),
+		NONE(3);
+		
+		public int value;
+
+		LoggingLevel(int value) {
+			this.value = value;
+		}
+	}
+	
+	private static void log(String message, LoggingLevel loggingLevel) {
+		if (loggingLevel.value <= loggingLevel.value) {
+			switch (loggingLevel) {
+			case ERROR:
+				Log.e("RestClient", message);
+				break;
+			case VERBOSE:
+				Log.i("RestClient", message);
+				break;
+			case WARNING:
+				Log.w("RestClient", message);
+				break;
+			}
 		}
 	}
 }
