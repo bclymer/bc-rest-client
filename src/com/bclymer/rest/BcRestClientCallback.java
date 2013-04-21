@@ -1,7 +1,7 @@
 package com.bclymer.rest;
 
 
-public abstract class RestClientCallback<T> {
+public abstract class BcRestClientCallback<T> {
 	
 	/**
 	 * Called as soon as the async request is made by the user.
@@ -17,12 +17,12 @@ public abstract class RestClientCallback<T> {
 	 * Called when the status code of the http request is 200-299.
 	 * @param response The response object containing the headers, status code, and response.
 	 */
-	public void onSuccess(RestClientResponse<T> response) {}
+	public void onSuccess(BcRestClientResponse<T> response) {}
 	
 	/**
 	 * Called when an exception is thrown of the http status code is < 200 or > 299.
 	 * @param response The response object containing the headers, status code, and response.
 	 */
-	public void onFailure(RestClientResponse<T> response) {}
+	public void onFailure(BcRestClientResponse<T> response) {}
 	
 }

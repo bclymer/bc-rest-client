@@ -20,10 +20,10 @@ import android.util.Base64;
 import android.util.Log;
 import android.util.SparseArray;
 
-import com.bclymer.rest.RestClientResponse.ErrorCode;
+import com.bclymer.rest.BcRestClientResponse.ErrorCode;
 import com.google.gson.Gson;
 
-public class RestClient {
+public class BcRestClient {
 
 	private final Gson gson = new Gson();
 	private final AtomicInteger mCount = new AtomicInteger();
@@ -33,13 +33,13 @@ public class RestClient {
 	private SparseArray<DownloadWebSourceTask> mTasks = new SparseArray<DownloadWebSourceTask>();
 	private Map<String, String> mDefaultHeaders = new HashMap<String, String>();
 
-	private static final RestClient instance = new RestClient();
+	private static final BcRestClient instance = new BcRestClient();
 
-	private RestClient() {
+	private BcRestClient() {
 		disableConnectionReuseIfNecessary();
 	}
 
-	public static RestClient getInstance() {
+	public static BcRestClient getInstance() {
 		return instance;
 	}
 
@@ -133,7 +133,7 @@ public class RestClient {
 		return id;
 	}
 
-	private class DownloadWebSourceTask<T> extends AsyncTask<Void, Void, RestClientResponse<T>> {
+	private class DownloadWebSourceTask<T> extends AsyncTask<Void, Void, BcRestClientResponse<T>> {
 
 		private Request request;
 
@@ -150,17 +150,17 @@ public class RestClient {
 		}
 
 		@Override
-		protected RestClientResponse<T> doInBackground(Void... params) {
+		protected BcRestClientResponse<T> doInBackground(Void... params) {
 			log("Executing Task " + request.taskId, LoggingLevel.VERBOSE);
 			return performSyncRequest(request);
 		}
 
 		@SuppressWarnings("unchecked")
 		@Override
-		protected void onCancelled(RestClientResponse<T> response) {
+		protected void onCancelled(BcRestClientResponse<T> response) {
 			log("onCancelled Task " + request.taskId, LoggingLevel.VERBOSE);
 			if (response == null) {
-				response = new RestClientResponse<T>();
+				response = new BcRestClientResponse<T>();
 			}
 			response.errorCode = ErrorCode.REQUEST_CANCELLED;
 			if (request.callback != null) {
@@ -170,7 +170,7 @@ public class RestClient {
 
 		@SuppressWarnings("unchecked")
 		@Override
-		protected void onPostExecute(RestClientResponse<T> response) {
+		protected void onPostExecute(BcRestClientResponse<T> response) {
 			log("onPostExecute Task " + request.taskId, LoggingLevel.VERBOSE);
 			if (request.callback == null)
 				return;
@@ -184,8 +184,8 @@ public class RestClient {
 	}
 
 	@SuppressWarnings("unchecked")
-	private <T> RestClientResponse<T> performSyncRequest(Request request) {
-		RestClientResponse<T> response = new RestClientResponse<T>();
+	private <T> BcRestClientResponse<T> performSyncRequest(Request request) {
+		BcRestClientResponse<T> response = new BcRestClientResponse<T>();
 		try {
 			log(request.url, LoggingLevel.VERBOSE);
 			URL url = new URL(request.url);
@@ -348,7 +348,7 @@ public class RestClient {
 		 * @return
 		 */
 		@SuppressWarnings("rawtypes")
-		public Builder setRestClientCallback(RestClientCallback callback) {
+		public Builder setRestClientCallback(BcRestClientCallback callback) {
 			request.callback = callback;
 			return this;
 		}
@@ -377,7 +377,7 @@ public class RestClient {
 		 * @param <T>
 		 * @return The response object
 		 */
-		public <T> RestClientResponse<T> executeSync() {
+		public <T> BcRestClientResponse<T> executeSync() {
 			return getInstance().performSyncRequest(request);
 		}
 
@@ -389,7 +389,7 @@ public class RestClient {
 		 * @return an int id of the request to check the status on or cancel.
 		 */
 		public int executeAsync() {
-			return RestClient.getInstance().performRequest(request);
+			return BcRestClient.getInstance().performRequest(request);
 		}
 	}
 
@@ -399,7 +399,7 @@ public class RestClient {
 		public Class<?> clazz;
 		public HashMap<String, String> headers;
 		@SuppressWarnings("rawtypes")
-		public RestClientCallback callback;
+		public BcRestClientCallback callback;
 		public String body;
 		public RequestType requestType;
 		public int taskId;

@@ -2,7 +2,7 @@ package com.bclymer.rest;
 
 import org.apache.http.Header;
 
-public class RestClientResponse<T> {
+public class BcRestClientResponse<T> {
 	
 	public T response;
 	public int httpStatusCode;
