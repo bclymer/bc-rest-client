@@ -390,7 +390,7 @@ public class BcRestClient {
 
 		public Builder addBasicAuthentication(String username, String password) {
 			request.headers.put("Authorization",
-					"Basic " + Base64.encodeToString("user:password".getBytes(), Base64.NO_WRAP));
+					"Basic " + Base64.encodeToString((username + ":" + password).getBytes(), Base64.NO_WRAP));
 			return this;
 		}
 
