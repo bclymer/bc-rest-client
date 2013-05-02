@@ -32,6 +32,9 @@ public class BcRestClient {
 	@SuppressWarnings("rawtypes")
 	private SparseArray<DownloadWebSourceTask> mTasks = new SparseArray<DownloadWebSourceTask>();
 	private Map<String, String> mDefaultHeaders = new HashMap<String, String>();
+	
+	private Runnable mFailureCallback;
+	private BcRestClientResponse<?> mFailureResponse;
 
 	private static final BcRestClient instance = new BcRestClient();
 
@@ -41,6 +44,20 @@ public class BcRestClient {
 
 	public static BcRestClient getInstance() {
 		return instance;
+	}
+	
+	/**
+	 * This runnable will be run if the network request fails for any reason.
+	 * It will be called for both async and sync calls.
+	 * The BcRestClientResponse can be gotten via RestClient.getInstance().getFailureResponse();
+	 * @param runnable The runnable to execute on a failure
+	 */
+	public void setFailureCallback(Runnable runnable) {
+		mFailureCallback = runnable;
+	}
+	
+	public BcRestClientResponse<?> getFailureResponse() {
+		return mFailureResponse;
 	}
 
 	/**
@@ -251,6 +268,11 @@ public class BcRestClient {
 			}
 			log("NETWORK ERROR UNKNOWN", LoggingLevel.ERROR);
 			response.errorCode = ErrorCode.NETWORK_ERROR_UNKNOWN;
+		}
+		if (response.errorCode != ErrorCode.NONE && mFailureCallback != null) {
+			mFailureResponse = response;
+			mFailureCallback.run();
+			mFailureResponse = null;
 		}
 		return response;
 	}
