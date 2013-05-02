@@ -9,6 +9,7 @@ public class BcRestClientResponse<T> {
 	public ErrorCode errorCode;
 	public String rawResponse;
 	public Header[] headers;
+	public String url;
 
 	public enum ErrorCode {
 		

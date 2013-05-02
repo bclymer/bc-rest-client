@@ -203,6 +203,7 @@ public class BcRestClient {
 	@SuppressWarnings("unchecked")
 	private <T> BcRestClientResponse<T> performSyncRequest(Request request) {
 		BcRestClientResponse<T> response = new BcRestClientResponse<T>();
+		response.url = request.url;
 		try {
 			log(request.url, LoggingLevel.VERBOSE);
 			URL url = new URL(request.url);
