@@ -191,12 +191,12 @@ public class BcRestClient {
 			log("onPostExecute Task " + request.taskId, LoggingLevel.VERBOSE);
 			if (request.callback == null)
 				return;
+			request.callback.onPostExecute();
 			if (response.errorCode == ErrorCode.NONE) {
 				request.callback.onSuccess(response);
 			} else {
 				request.callback.onFailure(response);
 			}
-			request.callback.onPostExecute();
 		}
 	}
 
@@ -456,7 +456,7 @@ public class BcRestClient {
 	}
 	
 	private static void log(String message, LoggingLevel loggingLevel) {
-		if (loggingLevel.value <= loggingLevel.value) {
+		if (BcRestClient.loggingLevel.value <= loggingLevel.value) {
 			switch (loggingLevel) {
 			case ERROR:
 				Log.e("RestClient", message);
@@ -466,6 +466,8 @@ public class BcRestClient {
 				break;
 			case WARNING:
 				Log.w("RestClient", message);
+				break;
+			default:
 				break;
 			}
 		}
