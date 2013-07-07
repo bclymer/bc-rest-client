@@ -12,7 +12,7 @@ import android.os.Handler;
 
 public class BcThreadManager {
 
-	private static final int CORE_POOL_SIZE = 3;
+	private static final int CORE_POOL_SIZE = 1;
 	private static final int MAXIMUM_POOL_SIZE = 128;
 	private static final int KEEP_ALIVE = 1;
 	private static final AtomicInteger threadId = new AtomicInteger();
@@ -20,7 +20,7 @@ public class BcThreadManager {
 	private static final ThreadFactory mThreadFactory = new ThreadFactory() {
 		public Thread newThread(Runnable r) {
 			Thread t = new Thread(r);
-			t.setName("ThreadManager-" + threadId.getAndIncrement());
+			t.setName("BcThreadManager-" + threadId.getAndIncrement());
 			return t;
 		}
 	};
