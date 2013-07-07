@@ -10,15 +10,10 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import android.annotation.TargetApi;
-import android.os.AsyncTask;
-import android.os.AsyncTask.Status;
 import android.os.Build;
 import android.util.Base64;
 import android.util.Log;
-import android.util.SparseArray;
 
 import com.bclymer.rest.BcRestClientResponse.ErrorCode;
 import com.google.gson.Gson;
@@ -26,11 +21,8 @@ import com.google.gson.Gson;
 public class BcRestClient {
 
 	private final Gson gson = new Gson();
-	private final AtomicInteger mCount = new AtomicInteger();
 	private static LoggingLevel loggingLevel = LoggingLevel.NONE;
 
-	@SuppressWarnings("rawtypes")
-	private SparseArray<DownloadWebSourceTask> mTasks = new SparseArray<DownloadWebSourceTask>();
 	private Map<String, String> mDefaultHeaders = new HashMap<String, String>();
 	
 	private Runnable mFailureCallback;
@@ -83,39 +75,6 @@ public class BcRestClient {
 		log("Removing default header with key " + key, LoggingLevel.VERBOSE);
 		mDefaultHeaders.remove(key);
 	}
-
-	/**
-	 * Cancel an asynchronous request.
-	 * 
-	 * @param id
-	 *            ID of the task to cancel.
-	 * @return whether the task was successfully cancelled or not.
-	 */
-	public boolean cancel(int id) {
-		try {
-			log("Cancelling task " + id, LoggingLevel.VERBOSE);
-			return mTasks.get(id).cancel(true);
-		} catch (Exception e) {
-			log("Failed to cancel task " + id, LoggingLevel.ERROR);
-			return false;
-		}
-	}
-
-	/**
-	 * Gets the status of the network request.
-	 * 
-	 * @param id
-	 *            ID of the task to get the status of.
-	 * @return An AsyncTask.Status of the request, or <b>null</b> if the task
-	 *         isn't found.
-	 */
-	public Status getStatus(int id) {
-		try {
-			return mTasks.get(id).getStatus();
-		} catch (Exception e) {
-			return null;
-		}
-	}
 	
 	/**
 	 * Set the logging level for the RestClient.
@@ -135,69 +94,45 @@ public class BcRestClient {
 		return serialization;
 	}
 
-	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
-	private <T> int performRequest(Request request) {
-		DownloadWebSourceTask<T> d = new DownloadWebSourceTask<T>(request);
-		int id = mCount.getAndIncrement();
-		mTasks.put(id, d);
-		request.taskId = id;
-		log("Adding async task to queue with id " + id, LoggingLevel.VERBOSE);
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-			d.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-		} else {
-			d.execute();
-		}
-		return id;
+	private <T> void performRequest(Request request) {
+		log("Adding async task to queue", LoggingLevel.VERBOSE);
+		executeAsyncRequest(request);
 	}
 
-	private class DownloadWebSourceTask<T> extends AsyncTask<Void, Void, BcRestClientResponse<T>> {
-
-		private Request request;
-
-		public DownloadWebSourceTask(Request request) {
-			this.request = request;
-		}
-
-		@Override
-		protected void onPreExecute() {
-			log("onPreExecute Id " + request.taskId, LoggingLevel.VERBOSE);
-			if (request.callback != null) {
-				request.callback.onPreExecute();
+	private <T> void executeAsyncRequest(final Request request) {
+		BcThreadManager.runOnUi(new Runnable() {
+			@Override
+			public void run() {
+				log("onPreExecute Id " + request.taskId, LoggingLevel.VERBOSE);
+				if (request.callback != null) {
+					request.callback.onPreExecute();
+				}
+				BcThreadManager.runInBackground(new Runnable() {
+					
+					@Override
+					public void run() {
+						log("Executing Task " + request.taskId, LoggingLevel.VERBOSE);
+						final BcRestClientResponse<T> response = performSyncRequest(request);
+						BcThreadManager.runOnUi(new Runnable() {
+							
+							@SuppressWarnings("unchecked")
+							@Override
+							public void run() {
+								log("onPostExecute Task " + request.taskId, LoggingLevel.VERBOSE);
+								if (request.callback == null)
+									return;
+								request.callback.onPostExecute();
+								if (response.errorCode == ErrorCode.NONE) {
+									request.callback.onSuccess(response);
+								} else {
+									request.callback.onFailure(response);
+								}
+							}
+						});
+					}
+				});
 			}
-		}
-
-		@Override
-		protected BcRestClientResponse<T> doInBackground(Void... params) {
-			log("Executing Task " + request.taskId, LoggingLevel.VERBOSE);
-			return performSyncRequest(request);
-		}
-
-		@SuppressWarnings("unchecked")
-		@Override
-		protected void onCancelled(BcRestClientResponse<T> response) {
-			log("onCancelled Task " + request.taskId, LoggingLevel.VERBOSE);
-			if (response == null) {
-				response = new BcRestClientResponse<T>();
-			}
-			response.errorCode = ErrorCode.REQUEST_CANCELLED;
-			if (request.callback != null) {
-				request.callback.onFailure(response);
-			}
-		}
-
-		@SuppressWarnings("unchecked")
-		@Override
-		protected void onPostExecute(BcRestClientResponse<T> response) {
-			log("onPostExecute Task " + request.taskId, LoggingLevel.VERBOSE);
-			if (request.callback == null)
-				return;
-			request.callback.onPostExecute();
-			if (response.errorCode == ErrorCode.NONE) {
-				request.callback.onSuccess(response);
-			} else {
-				request.callback.onFailure(response);
-			}
-		}
+		});
 	}
 
 	@SuppressWarnings("unchecked")
@@ -411,8 +346,8 @@ public class BcRestClient {
 		 * 
 		 * @return an int id of the request to check the status on or cancel.
 		 */
-		public int executeAsync() {
-			return BcRestClient.getInstance().performRequest(request);
+		public void executeAsync() {
+			BcRestClient.getInstance().performRequest(request);
 		}
 	}
 
