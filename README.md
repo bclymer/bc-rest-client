@@ -2,6 +2,9 @@ AndroidRestClient
 =================
 Asynchronous JSON REST client for Android.
 
+Just took a look at this project 10/3/2013, not everything works correctly. Not sure how the code went bad, but I recommend using Google's Volley library, it's what I use now.
+https://android.googlesource.com/platform/frameworks/volley/
+
 Example Usage
 =================
 ```
