@@ -154,7 +154,7 @@ public class BcRestClient {
 			connection.setRequestMethod(request.requestType.name());
 			connection.setRequestProperty("User-Agent","Mozilla/5.0 ( compatible ) ");
 			connection.setRequestProperty("Accept","*/*");
-			if (request.requestType == RequestType.POST || request.requestType == RequestType.PUT) {
+			if (request.body != null && (request.requestType == RequestType.POST || request.requestType == RequestType.PUT)) {
 				connection.setDoOutput(true);
 				OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
 				writer.write(request.body);
@@ -320,6 +320,18 @@ public class BcRestClient {
 		 */
 		public Builder setObjectBody(Object body) {
 			request.body = getInstance().getStringForObject(body);
+			return this;
+		}
+		
+		/**
+		 * Write the body of a POST or PUT request
+		 * 
+		 * @param body
+		 *            Any string to write as the body
+		 * @return
+		 */
+		public Builder setStringBody(String body) {
+			request.body = body;
 			return this;
 		}
 
